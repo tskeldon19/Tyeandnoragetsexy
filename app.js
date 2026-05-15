@@ -208,66 +208,69 @@ let _goalsCache = null;
 let _sprintCache = null;
 
 function loadGoals() { return _goalsCache || DEFAULT_GOALS; }
-function ensureGoalsFrame() {
-  if (!document.getElementById('goals-frame')) {
-    const gframe = document.createElement('iframe');
-    gframe.name = 'goals-frame';
-    gframe.id = 'goals-frame';
-    gframe.style.display = 'none';
-    document.body.appendChild(gframe);
+// ── Goals proxy via setup.html iframe ──
+// Safari blocks JSONP from script.google.com but allows same-origin iframes
+// setup.html handles all sheet communication and reports back via postMessage
+
+let _goalsProxyReady = false;
+let _goalsPendingMessages = [];
+
+function ensureGoalsProxy() {
+  if (!document.getElementById('goals-proxy')) {
+    const iframe = document.createElement('iframe');
+    iframe.id = 'goals-proxy';
+    iframe.src = 'setup.html?mode=silent';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    window.addEventListener('message', e => {
+      if (e.data && e.data.type === 'goalsLoaded') {
+        _goalsProxyReady = true;
+        // Load fresh data from localStorage that setup.html just wrote
+        try { const lb = localStorage.getItem('goals_backup'); if (lb) _goalsCache = JSON.parse(lb); } catch(err){}
+        try { const sb = localStorage.getItem('sprint_backup'); if (sb) _sprintCache = JSON.parse(sb); } catch(err){}
+        updateSprintDisplays();
+        renderLogGoalsPreview();
+        // Flush any pending saves
+        _goalsPendingMessages.forEach(msg => iframe.contentWindow.postMessage(msg, '*'));
+        _goalsPendingMessages = [];
+      }
+      if (e.data && e.data.type === 'goalsSaved') {
+        // Save confirmed
+      }
+    });
   }
+  return document.getElementById('goals-proxy');
 }
 
-function postToSheet(payload) {
-  ensureGoalsFrame();
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = WEB_APP_URL;
-  form.target = 'goals-frame';
-  form.style.display = 'none';
-  const inp = document.createElement('input');
-  inp.type = 'hidden';
-  inp.name = 'data';
-  inp.value = JSON.stringify(payload);
-  form.appendChild(inp);
-  document.body.appendChild(form);
-  form.submit();
-  setTimeout(() => { if (form.parentNode) document.body.removeChild(form); }, 3000);
+function postToProxy(msg) {
+  const proxy = ensureGoalsProxy();
+  if (_goalsProxyReady) {
+    proxy.contentWindow.postMessage(msg, '*');
+  } else {
+    _goalsPendingMessages.push(msg);
+  }
 }
 
 function saveGoalsData(g) {
   _goalsCache = g;
   localStorage.setItem('goals_backup', JSON.stringify(g));
-  postToSheet({ action:'saveGoals', user:'tye', goals: g.tye||[] });
-  setTimeout(() => postToSheet({ action:'saveGoals', user:'nora', goals: g.nora||[] }), 1500);
+  postToProxy({ type:'saveGoals', payload:{ action:'saveGoals', user:'tye', goals: g.tye||[] } });
+  setTimeout(() => postToProxy({ type:'saveGoals', payload:{ action:'saveGoals', user:'nora', goals: g.nora||[] } }), 1500);
 }
 function loadSprint() { return _sprintCache || DEFAULT_SPRINT; }
 function saveSprintData(sprint) {
   _sprintCache = sprint;
   localStorage.setItem('sprint_backup', JSON.stringify(sprint));
-  postToSheet({ action:'saveSprint', sprint });
+  postToProxy({ type:'saveSprint', payload:{ action:'saveSprint', sprint } });
 }
 
 async function fetchGoalsAndSprint() {
-  // First load from localStorage backup so UI renders immediately
+  // Load from localStorage backup immediately so UI renders fast
   try { const lb = localStorage.getItem('goals_backup'); if (lb) _goalsCache = JSON.parse(lb); } catch(e){}
   try { const sb = localStorage.getItem('sprint_backup'); if (sb) _sprintCache = JSON.parse(sb); } catch(e){}
-
-  // Then fetch from sheet and update
-  try {
-    const [gd, sd] = await Promise.all([
-      jsonpFetch(WEB_APP_URL+'?action=getGoals'),
-      jsonpFetch(WEB_APP_URL+'?action=getSprint'),
-    ]);
-    if (gd.success) {
-      _goalsCache = { tye: gd.tye||[], nora: gd.nora||[] };
-      localStorage.setItem('goals_backup', JSON.stringify(_goalsCache));
-    }
-    if (sd.success && sd.sprint && sd.sprint.name) {
-      _sprintCache = sd.sprint;
-      localStorage.setItem('sprint_backup', JSON.stringify(sd.sprint));
-    }
-  } catch(e) { /* keep backup */ }
+  // Then trigger silent fetch via proxy iframe
+  ensureGoalsProxy();
 }
 function daysLeft(end) { return Math.max(0, Math.ceil((new Date(end) - new Date()) / 86400000)); }
 

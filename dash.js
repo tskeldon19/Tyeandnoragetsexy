@@ -101,14 +101,42 @@ function loadSprint() { return _sprintCache || DEFAULT_SPRINT; }
 function loadGoals() { return _goalsCache || DEFAULT_GOALS; }
 
 async function fetchGoalsAndSprint() {
+  // Load from localStorage backup first for instant render
+  try { const lb = localStorage.getItem('goals_backup'); if (lb) _goalsCache = JSON.parse(lb); } catch(e){}
+  try { const sb = localStorage.getItem('sprint_backup'); if (sb) _sprintCache = JSON.parse(sb); } catch(e){}
+
+  // Also try direct JSONP (works on desktop/Android)
   try {
     const [gd, sd] = await Promise.all([
       jsonpFetch(WEB_APP_URL+'?action=getGoals'),
       jsonpFetch(WEB_APP_URL+'?action=getSprint'),
     ]);
-    if (gd.success) _goalsCache = { tye: gd.tye||[], nora: gd.nora||[] };
-    if (sd.success && sd.sprint && sd.sprint.name) _sprintCache = sd.sprint;
-  } catch(e) { /* use defaults */ }
+    if (gd.success) {
+      _goalsCache = { tye: gd.tye||[], nora: gd.nora||[] };
+      localStorage.setItem('goals_backup', JSON.stringify(_goalsCache));
+    }
+    if (sd.success && sd.sprint && sd.sprint.name) {
+      _sprintCache = sd.sprint;
+      localStorage.setItem('sprint_backup', JSON.stringify(sd.sprint));
+    }
+  } catch(e) {
+    // If JSONP fails (Safari ITP), try loading via proxy iframe
+    if (!document.getElementById('dash-goals-proxy')) {
+      const iframe = document.createElement('iframe');
+      iframe.id = 'dash-goals-proxy';
+      iframe.src = 'setup.html?mode=silent';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      window.addEventListener('message', ev => {
+        if (ev.data && ev.data.type === 'goalsLoaded') {
+          try { const lb = localStorage.getItem('goals_backup'); if (lb) _goalsCache = JSON.parse(lb); } catch(err){}
+          try { const sb = localStorage.getItem('sprint_backup'); if (sb) _sprintCache = JSON.parse(sb); } catch(err){}
+          updateSprintBanner();
+          renderGoals();
+        }
+      });
+    }
+  }
 }
 function daysLeft(end) { return Math.max(0,Math.ceil((new Date(end)-new Date())/86400000)); }
 
