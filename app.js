@@ -237,24 +237,37 @@ function postToSheet(payload) {
 
 function saveGoalsData(g) {
   _goalsCache = g;
+  localStorage.setItem('goals_backup', JSON.stringify(g));
   postToSheet({ action:'saveGoals', user:'tye', goals: g.tye||[] });
   setTimeout(() => postToSheet({ action:'saveGoals', user:'nora', goals: g.nora||[] }), 1500);
 }
 function loadSprint() { return _sprintCache || DEFAULT_SPRINT; }
 function saveSprintData(sprint) {
   _sprintCache = sprint;
+  localStorage.setItem('sprint_backup', JSON.stringify(sprint));
   postToSheet({ action:'saveSprint', sprint });
 }
 
 async function fetchGoalsAndSprint() {
+  // First load from localStorage backup so UI renders immediately
+  try { const lb = localStorage.getItem('goals_backup'); if (lb) _goalsCache = JSON.parse(lb); } catch(e){}
+  try { const sb = localStorage.getItem('sprint_backup'); if (sb) _sprintCache = JSON.parse(sb); } catch(e){}
+
+  // Then fetch from sheet and update
   try {
     const [gd, sd] = await Promise.all([
       jsonpFetch(WEB_APP_URL+'?action=getGoals'),
       jsonpFetch(WEB_APP_URL+'?action=getSprint'),
     ]);
-    if (gd.success) _goalsCache = { tye: gd.tye||[], nora: gd.nora||[] };
-    if (sd.success && sd.sprint && sd.sprint.name) _sprintCache = sd.sprint;
-  } catch(e) { /* use defaults */ }
+    if (gd.success) {
+      _goalsCache = { tye: gd.tye||[], nora: gd.nora||[] };
+      localStorage.setItem('goals_backup', JSON.stringify(_goalsCache));
+    }
+    if (sd.success && sd.sprint && sd.sprint.name) {
+      _sprintCache = sd.sprint;
+      localStorage.setItem('sprint_backup', JSON.stringify(sd.sprint));
+    }
+  } catch(e) { /* keep backup */ }
 }
 function daysLeft(end) { return Math.max(0, Math.ceil((new Date(end) - new Date()) / 86400000)); }
 
@@ -594,6 +607,7 @@ function selectGoalType(btn, type) {
 function updateMetricOptions() {
   const type = document.getElementById('new-goal-type-perf') ? document.getElementById('new-goal-type-perf').value : 'lift';
   const ms = document.getElementById('new-goal-metric'), ew = document.getElementById('perf-exercise-wrap');
+  const tw = document.getElementById('target-weight-wrap');
   if (!ms) return;
   const opts = {
     lift:[['max_reps_at_weight','Max reps at weight'],['max_weight','Max weight lifted'],['max_reps','Max reps (bodyweight)']],
@@ -606,6 +620,8 @@ function updateMetricOptions() {
   const list = opts[type] || opts.lift;
   ms.innerHTML = list.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
   if (ew) ew.style.display = (type === 'lift' || type === 'calisthenics') ? '' : 'none';
+  if (tw) tw.style.display = ms.value === 'max_reps_at_weight' ? '' : 'none';
+  ms.onchange = () => { if (tw) tw.style.display = ms.value === 'max_reps_at_weight' ? '' : 'none'; };
 }
 
 function addGoal() {
@@ -621,7 +637,7 @@ function addGoal() {
     g.exercise = document.getElementById('new-goal-exercise').value.trim();
     g.targetVal = parseFloat(document.getElementById('new-goal-target-val').value) || 0;
     g.targetUnit = document.getElementById('new-goal-target-unit').value.trim();
-    g.targetWeight = g.metric === 'max_reps_at_weight' ? g.targetVal : 0;
+    g.targetWeight = g.metric === 'max_reps_at_weight' ? (parseFloat(document.getElementById('new-goal-target-weight').value) || 0) : 0;
     if (g.exercise) addExerciseToSheet(g.exercise);
   } else if (newGoalType === 'count') {
     g.type = document.getElementById('new-goal-type-count').value;
@@ -630,7 +646,7 @@ function addGoal() {
     g.countFilter = document.getElementById('new-goal-count-filter').value.trim();
   }
   goals[goalsUser].push(g); saveGoalsData(goals);
-  ['new-goal-label','new-goal-target-val','new-goal-target-unit','new-goal-exercise','new-goal-count-total','new-goal-count-unit','new-goal-count-filter']
+  ['new-goal-label','new-goal-target-val','new-goal-target-unit','new-goal-target-weight','new-goal-exercise','new-goal-count-total','new-goal-count-unit','new-goal-count-filter']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderGoals(); showToast('Goal added!', 'success');
 }
