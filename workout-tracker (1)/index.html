@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Workout Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="showPage('log')">Log workout</button>
+  <button class="nav-tab" onclick="showPage('goals')">Goals</button>
+  <a class="nav-tab" href="dashboard.html" style="text-decoration:none;">Dashboard</a>
+</nav>
+
+<!-- ═══════════ PAGE: LOG ═══════════ -->
+<div class="page active" id="page-log">
+  <div class="header">
+    <div>
+      <div class="header-title">Log workout</div>
+      <div class="header-date" id="today-date"></div>
+    </div>
+    <div class="user-toggle">
+      <button class="user-btn active" onclick="selectUser(this,'tye')">Tye</button>
+      <button class="user-btn" onclick="selectUser(this,'nora')">Nora</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span>Active sprint</span>
+      <button class="small-btn" onclick="showPage('goals')">Edit goals</button>
+    </div>
+    <div class="section-body">
+      <div class="sprint-row">
+        <div class="sprint-pill">
+          <span class="dot"></span>
+          <span id="log-sprint-name">—</span> · <span id="log-sprint-days">—</span>
+        </div>
+        <div class="sprint-progress-wrap">
+          <div class="sprint-progress-track">
+            <div class="sprint-progress-fill" id="sprint-prog-fill" style="width:0%;"></div>
+          </div>
+          <div class="sprint-progress-label" id="sprint-prog-label">— / — goals</div>
+        </div>
+      </div>
+      <div id="log-goals-preview">
+        <div style="font-size:13px;color:var(--hint);padding:4px 0;">Loading goals…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">Workout type</div>
+    <div class="type-grid">
+      <div class="type-card" onclick="selectType(this,'lift')"><span class="icon">🏋️</span><span>Lift</span></div>
+      <div class="type-card" onclick="selectType(this,'hiit')"><span class="icon">🔥</span><span>HIIT</span></div>
+      <div class="type-card" onclick="selectType(this,'outdoor-run')"><span class="icon">🏃</span><span>Outdoor run</span></div>
+      <div class="type-card" onclick="selectType(this,'indoor-run')"><span class="icon">⏱️</span><span>Indoor run</span></div>
+      <div class="type-card" onclick="selectType(this,'hike')"><span class="icon">⛰️</span><span>Hike</span></div>
+      <div class="type-card" onclick="selectType(this,'class')"><span class="icon">🧘</span><span>Class</span></div>
+      <div class="type-card" onclick="selectType(this,'sports')"><span class="icon">⚽</span><span>Sports game</span></div>
+      <div class="type-card" onclick="selectType(this,'calisthenics')"><span class="icon">💪</span><span>Calisthenics</span></div>
+      <div class="type-card" onclick="selectType(this,'other')"><span class="icon">✳️</span><span>Other</span></div>
+    </div>
+  </div>
+
+  <div id="dynamic-area"></div>
+
+  <div class="section" id="feel-section" style="display:none;">
+    <div class="section-head">How'd it feel?</div>
+    <div class="section-body">
+      <div class="feel-row">
+        <button class="feel-btn" onclick="selectFeel(this,1)">😴</button>
+        <button class="feel-btn" onclick="selectFeel(this,2)">😕</button>
+        <button class="feel-btn" onclick="selectFeel(this,3)">😐</button>
+        <button class="feel-btn" onclick="selectFeel(this,4)">💪</button>
+        <button class="feel-btn" onclick="selectFeel(this,5)">🔥</button>
+      </div>
+      <div class="feel-labels"><span>Dead</span><span>Meh</span><span>Ok</span><span>Good</span><span>Fire</span></div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="notes-field" placeholder="PRs, how you felt, what to adjust next time…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-wrap" id="submit-wrap" style="display:none;">
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">Save workout</button>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE: GOALS ═══════════ -->
+<div class="page" id="page-goals">
+  <div class="header">
+    <div>
+      <div class="header-title">Goals</div>
+      <div class="header-date">Manage sprints and track progress</div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:20px;">
+    <div class="section-head">Current sprint</div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:15px;font-weight:500;" id="sprint-name-display">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="sprint-dates-display"></div>
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);" id="sprint-days-display"></span>
+      </div>
+      <div class="sprint-edit-row">
+        <input type="text" id="sprint-name-input" placeholder="Sprint name">
+      </div>
+      <div class="sprint-edit-row" style="margin-top:8px;">
+        <input type="date" id="sprint-start-input" title="Start date">
+        <input type="date" id="sprint-end-input" title="End date">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:2px;padding:0 2px;">
+        <span style="flex:1;font-size:11px;color:var(--muted);">Start date</span>
+        <span style="flex:1;font-size:11px;color:var(--muted);">End date</span>
+      </div>
+      <button class="add-btn" onclick="saveSprint()">Save sprint</button>
+      <button class="add-btn" onclick="resetGoalsAndSprint()" style="margin-top:6px;border-color:rgba(255,95,95,0.3);color:var(--red);">⚠ Clear all goals & sprint (this device)</button>
+    </div>
+  </div>
+
+  <div class="goals-user-toggle">
+    <button class="goals-user-btn active" onclick="switchGoalsUser(this,'tye')">Tye's goals</button>
+    <button class="goals-user-btn" onclick="switchGoalsUser(this,'nora')">Nora's goals</button>
+  </div>
+
+  <div style="margin:12px 16px 0;" id="goals-container"></div>
+
+  <div class="section" style="margin-top:12px;">
+    <div class="section-head">Add new goal</div>
+    <div class="section-body">
+
+      <div class="field-group" style="margin-bottom:14px;">
+        <div class="field">
+          <label>Goal description</label>
+          <input type="text" id="new-goal-label" placeholder="e.g. Bench press 225 lbs × 5 reps">
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Goal type</div>
+      <div class="goal-type-selector">
+        <button class="goal-type-btn active" onclick="selectGoalType(this,'checkbox')">✓ Checkbox</button>
+        <button class="goal-type-btn" onclick="selectGoalType(this,'performance')">📈 Performance</button>
+        <button class="goal-type-btn" onclick="selectGoalType(this,'count')">🔢 Count</button>
+      </div>
+
+      <!-- Checkbox fields -->
+      <div class="goal-type-fields show" id="gtf-checkbox">
+        <div class="field-group">
+          <div class="field"><label>Workout type</label>
+            <select id="new-goal-type-cb">
+              <option value="lift">Lift</option><option value="outdoor-run">Outdoor run</option>
+              <option value="indoor-run">Indoor run</option><option value="hiit">HIIT</option>
+              <option value="hike">Hike</option><option value="class">Class</option>
+              <option value="sports">Sports</option><option value="calisthenics">Calisthenics</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance fields -->
+      <div class="goal-type-fields" id="gtf-performance">
+        <div class="field-group cols-2">
+          <div class="field"><label>Workout type</label>
+            <select id="new-goal-type-perf" onchange="updateMetricOptions()">
+              <option value="lift">Lift</option><option value="calisthenics">Calisthenics</option>
+              <option value="outdoor-run">Outdoor run</option><option value="indoor-run">Indoor run</option>
+              <option value="hike">Hike</option><option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Metric</label><select id="new-goal-metric"></select></div>
+        </div>
+        <div class="field-group" id="perf-exercise-wrap">
+          <div class="field"><label>Exercise name</label>
+            <div class="autocomplete-wrap">
+              <input type="text" id="new-goal-exercise" placeholder="e.g. Bench press"
+                oninput="acFilter('new-goal-exercise','ac-goal-ex')"
+                onblur="acHide('ac-goal-ex')" autocomplete="off">
+              <div class="autocomplete-list" id="ac-goal-ex"></div>
+            </div>
+          </div>
+        </div>
+        <div class="field-group cols-2">
+          <div class="field"><label>Target reps</label>
+            <input type="number" id="new-goal-target-val" placeholder="e.g. 5" inputmode="decimal">
+          </div>
+          <div class="field"><label>Target unit</label>
+            <input type="text" id="new-goal-target-unit" placeholder="reps, lbs, min…">
+          </div>
+        </div>
+        <div class="field-group" id="target-weight-wrap">
+          <div class="field"><label>Target weight (lbs) — for "max reps at weight"</label>
+            <input type="number" id="new-goal-target-weight" placeholder="e.g. 285" inputmode="decimal">
+          </div>
+        </div>
+      </div>
+
+      <!-- Count fields -->
+      <div class="goal-type-fields" id="gtf-count">
+        <div class="field-group cols-2">
+          <div class="field"><label>Workout type</label>
+            <select id="new-goal-type-count">
+              <option value="hike">Hike</option><option value="lift">Lift</option>
+              <option value="outdoor-run">Outdoor run</option><option value="hiit">HIIT</option>
+              <option value="class">Class</option><option value="sports">Sports</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Target count</label>
+            <input type="number" id="new-goal-count-total" placeholder="e.g. 2" inputmode="numeric">
+          </div>
+        </div>
+        <div class="field-group cols-2">
+          <div class="field"><label>Unit label</label>
+            <input type="text" id="new-goal-count-unit" placeholder="hikes, sessions…">
+          </div>
+          <div class="field"><label>Min elevation ft (hike only)</label>
+            <input type="number" id="new-goal-count-filter" placeholder="e.g. 3000">
+          </div>
+        </div>
+      </div>
+
+      <button class="add-btn" style="margin-top:14px;" onclick="addGoal()">＋ Add goal</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<iframe name="submit-frame" id="submit-frame" style="display:none;"></iframe>
+<script src="app.js"></script>
+</body>
+</html>

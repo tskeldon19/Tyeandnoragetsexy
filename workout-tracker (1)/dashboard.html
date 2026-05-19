@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Workout Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dash.css">
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="pin-screen">
+  <div class="pin-wrap">
+    <div class="pin-logo">💪</div>
+    <div class="pin-title">Dashboard</div>
+    <div class="pin-sub">Enter PIN to continue</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-error" id="pin-error">Incorrect PIN</div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn pin-clear" onclick="pinClear()">⌫</button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn pin-empty"></button>
+    </div>
+    <a href="index.html" class="pin-back">← Back to log</a>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none;">
+
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">Dashboard</div>
+      <div class="dash-sub" id="dash-date"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+      <div class="user-toggle">
+        <button class="user-btn active" onclick="setUser(this,'both')">Both</button>
+        <button class="user-btn" onclick="setUser(this,'tye')">Tye</button>
+        <button class="user-btn" onclick="setUser(this,'nora')">Nora</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="refresh-btn" onclick="refreshData()" title="Refresh data" style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:18px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
+        <a href="index.html" class="back-link" style="font-size:12px;padding:6px 14px;">+ Log a workout</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sprint banner -->
+  <div class="dash-section">
+    <div class="sprint-banner">
+      <div class="sprint-banner-left">
+        <div class="sprint-dot"></div>
+        <div>
+          <div class="sprint-banner-name" id="db-sprint-name">—</div>
+          <div class="sprint-banner-sub" id="db-sprint-sub">—</div>
+        </div>
+      </div>
+      <div class="sprint-banner-right">
+        <div class="sprint-banner-pct" id="db-sprint-pct">—</div>
+        <div class="sprint-banner-track">
+          <div class="sprint-banner-fill" id="db-sprint-fill" style="width:0%;"></div>
+        </div>
+        <div class="sprint-banner-label" id="db-sprint-label">— / — goals</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics-row" id="metrics-row"></div>
+
+  <!-- Goals -->
+  <div class="dash-section">
+    <div class="section-header">
+      <div class="section-title">Goal progress</div>
+      <div class="toggle-group">
+        <button class="stoggle-btn active" onclick="setGoalView(this,'sprint')">This sprint</button>
+        <button class="stoggle-btn" onclick="setGoalView(this,'alltime')">All time</button>
+      </div>
+    </div>
+    <div id="goals-panel"><div class="loading-msg">Loading…</div></div>
+  </div>
+
+  <!-- PRs -->
+  <div class="dash-section">
+    <div class="section-header">
+      <div class="section-title">Personal records</div>
+      <div class="toggle-group">
+        <button class="stoggle-btn active" onclick="setPRView(this,'alltime')">All time</button>
+        <button class="stoggle-btn" onclick="setPRView(this,'sprint')">This sprint</button>
+      </div>
+    </div>
+    <!-- Person filter -->
+    <div class="pr-person-row" id="pr-person-row">
+      <button class="pr-person-btn active" onclick="setPRPerson(this,'both')">Both</button>
+      <button class="pr-person-btn" onclick="setPRPerson(this,'tye')">Tye</button>
+      <button class="pr-person-btn" onclick="setPRPerson(this,'nora')">Nora</button>
+    </div>
+    <!-- Category tabs -->
+    <div class="pr-tabs" id="pr-tabs"></div>
+    <div id="pr-panel"><div class="loading-msg">Loading…</div></div>
+  </div>
+
+  <!-- Calendar -->
+  <div class="dash-section">
+    <div class="section-header">
+      <div class="cal-nav">
+        <button class="cal-arrow" onclick="calPrev()">‹</button>
+        <div class="cal-month-label" id="cal-month-label">—</div>
+        <button class="cal-arrow" onclick="calNext()">›</button>
+      </div>
+    </div>
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="cal-legend-swatch tye"></div><span>Tye</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-swatch nora"></div><span>Nora</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-swatch both"></div><span>Both (gold)</span></div>
+    </div>
+    <div class="cal-day-labels">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- Log -->
+  <div class="dash-section">
+    <div class="section-header"><div class="section-title">Workout log</div></div>
+    <div class="log-filters" id="log-type-filters"></div>
+    <div class="log-table-head">
+      <span>Date</span><span>Type</span><span>Who</span><span>Details</span><span>Feel</span>
+    </div>
+    <div id="log-panel"><div class="loading-msg">Loading…</div></div>
+  </div>
+
+  <div style="text-align:center;margin:20px 0;">
+    <a href="index.html" class="back-link">← Log a workout</a>
+  </div>
+
+</div>
+
+<script src="dash.js"></script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setup</title>
+<style>
+  body{background:#0f0f0f;color:#f0ede8;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px;}
+  .card{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:12px;padding:30px;max-width:340px;}
+  h2{font-size:20px;margin-bottom:12px;}
+  p{font-size:14px;color:#888;margin-bottom:20px;}
+  button{width:100%;padding:14px;background:#c8f562;color:#0f0f0f;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+  .status{font-size:14px;color:#c8f562;margin-top:12px;min-height:20px;}
+  a{color:#888;font-size:13px;text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="card" id="manual-card">
+  <div style="font-size:36px;margin-bottom:12px;">💪</div>
+  <h2>Device Setup</h2>
+  <p>Tap the button to load your goals and sprint onto this device.</p>
+  <button onclick="loadFromSheet()">Load my goals</button>
+  <div class="status" id="status"></div>
+  <br><br>
+  <a href="index.html">← Back to app</a>
+</div>
+
+<script>
+const WEB_APP_URL = "https://workout-tracker.tskeldon19.workers.dev";
+let jc = 0;
+
+// Check if we're being called silently from an iframe or with a command
+const params = new URLSearchParams(window.location.search);
+const mode = params.get('mode');
+const command = params.get('cmd');
+
+function jsonpFetch(url) {
+  return new Promise((resolve, reject) => {
+    const cb = '__sc_' + (jc++);
+    const timer = setTimeout(() => { delete window[cb]; reject(new Error('timeout')); }, 12000);
+    window[cb] = data => { clearTimeout(timer); delete window[cb]; resolve(data); };
+    const s = document.createElement('script');
+    s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    s.onerror = () => { clearTimeout(timer); reject(new Error('error')); };
+    document.head.appendChild(s);
+  });
+}
+
+async function loadFromSheet() {
+  const btn = document.querySelector('button');
+  const status = document.getElementById('status');
+  if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
+  if (status) status.textContent = '';
+
+  try {
+    const [gd, sd] = await Promise.all([
+      jsonpFetch(WEB_APP_URL + '?action=getGoals'),
+      jsonpFetch(WEB_APP_URL + '?action=getSprint'),
+    ]);
+
+    if (gd.success) {
+      const goals = { tye: gd.tye||[], nora: gd.nora||[] };
+      localStorage.setItem('goals_backup', JSON.stringify(goals));
+    }
+    if (sd.success && sd.sprint) {
+      localStorage.setItem('sprint_backup', JSON.stringify(sd.sprint));
+    }
+
+    // Notify parent if in iframe mode
+    if (mode === 'silent') {
+      window.parent.postMessage({ type:'goalsLoaded', success:true }, '*');
+      return;
+    }
+
+    if (status) status.textContent = '✅ Done! Your goals are loaded.';
+    if (btn) btn.textContent = 'Success!';
+    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+
+  } catch(e) {
+    if (mode === 'silent') {
+      window.parent.postMessage({ type:'goalsLoaded', success:false }, '*');
+      return;
+    }
+    if (status) status.textContent = '❌ Error: ' + e.message;
+    if (btn) { btn.textContent = 'Try again'; btn.disabled = false; }
+  }
+}
+
+// Handle save commands from parent
+async function saveToSheet(payload) {
+  try {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = WEB_APP_URL;
+    form.target = 'goals-post-frame';
+    form.style.display = 'none';
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'data';
+    inp.value = JSON.stringify(payload);
+    form.appendChild(inp);
+
+    // Create dedicated frame
+    let frame = document.getElementById('goals-post-frame');
+    if (!frame) {
+      frame = document.createElement('iframe');
+      frame.name = 'goals-post-frame';
+      frame.id = 'goals-post-frame';
+      frame.style.display = 'none';
+      document.body.appendChild(frame);
+    }
+
+    document.body.appendChild(form);
+    frame.onload = () => {
+      window.parent.postMessage({ type:'goalsSaved', success:true }, '*');
+      if (form.parentNode) document.body.removeChild(form);
+    };
+    form.submit();
+  } catch(e) {
+    window.parent.postMessage({ type:'goalsSaved', success:false }, '*');
+  }
+}
+
+// Listen for messages from parent app
+window.addEventListener('message', e => {
+  if (e.data && e.data.type === 'saveGoals') saveToSheet(e.data.payload);
+  if (e.data && e.data.type === 'saveSprint') saveToSheet(e.data.payload);
+  if (e.data && e.data.type === 'fetchGoals') loadFromSheet();
+});
+
+// Auto-run if in silent mode
+if (mode === 'silent') {
+  document.getElementById('manual-card').style.display = 'none';
+  loadFromSheet();
+}
+</script>
+</body>
+</html>
