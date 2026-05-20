@@ -1,4 +1,4 @@
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzgD3MIhGaMhkhQTygg7psjtAwvmFebUBV0TvZvbhTQ/exec";
+const WEB_APP_URL = "https://workout-tracker.tskeldon19.workers.dev";
 const CORRECT_PIN = "0515";
 const FEEL = ['','😴','😕','😐','💪','🔥'];
 const TYPE_LABELS = { lift:'Lift','outdoor-run':'Outdoor run','indoor-run':'Indoor run',hiit:'HIIT',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',other:'Other' };
@@ -89,6 +89,11 @@ function jsonpFetch(url) {
   });
 }
 
+async function apiFetch(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // ══════════════════════════════════════
 // SPRINT + GOALS (from localStorage)
 // ══════════════════════════════════════
@@ -108,8 +113,8 @@ async function fetchGoalsAndSprint() {
   // Also try direct JSONP (works on desktop/Android)
   try {
     const [gd, sd] = await Promise.all([
-      jsonpFetch(WEB_APP_URL+'?action=getGoals'),
-      jsonpFetch(WEB_APP_URL+'?action=getSprint'),
+      apiFetch(WEB_APP_URL+'?action=getGoals'),
+      apiFetch(WEB_APP_URL+'?action=getSprint'),
     ]);
     if (gd.success) {
       _goalsCache = { tye: gd.tye||[], nora: gd.nora||[] };
@@ -172,10 +177,10 @@ async function initDashboard() {
 
   try {
     const [ld,wd,gd,sd] = await Promise.all([
-      jsonpFetch(WEB_APP_URL+'?action=getLifts'),
-      jsonpFetch(WEB_APP_URL+'?action=getWorkouts'),
-      jsonpFetch(WEB_APP_URL+'?action=getGoals'),
-      jsonpFetch(WEB_APP_URL+'?action=getSprint'),
+      apiFetch(WEB_APP_URL+'?action=getLifts'),
+      apiFetch(WEB_APP_URL+'?action=getWorkouts'),
+      apiFetch(WEB_APP_URL+'?action=getGoals'),
+      apiFetch(WEB_APP_URL+'?action=getSprint'),
     ]);
     allLifts = ld.success ? ld.rows : [];
     allWorkouts = wd.success ? wd.rows : [];
@@ -201,10 +206,10 @@ async function refreshData() {
   _goalsCache = null; _sprintCache = null;
   try {
     const [ld,wd,gd,sd] = await Promise.all([
-      jsonpFetch(WEB_APP_URL+'?action=getLifts'),
-      jsonpFetch(WEB_APP_URL+'?action=getWorkouts'),
-      jsonpFetch(WEB_APP_URL+'?action=getGoals'),
-      jsonpFetch(WEB_APP_URL+'?action=getSprint'),
+      apiFetch(WEB_APP_URL+'?action=getLifts'),
+      apiFetch(WEB_APP_URL+'?action=getWorkouts'),
+      apiFetch(WEB_APP_URL+'?action=getGoals'),
+      apiFetch(WEB_APP_URL+'?action=getSprint'),
     ]);
     allLifts = ld.success ? ld.rows : [];
     allWorkouts = wd.success ? wd.rows : [];

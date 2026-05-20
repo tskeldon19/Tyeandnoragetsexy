@@ -1,4 +1,4 @@
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzgD3MIhGaMhkhQTygg7psjtAwvmFebUBV0TvZvbhTQ/exec";
+const WEB_APP_URL = "https://workout-tracker.tskeldon19.workers.dev";
 
 // ── State ──
 let currentUser = 'tye', currentType = null, currentFeel = 0;
@@ -82,12 +82,18 @@ function jsonpFetch(url) {
   });
 }
 
+// Plain fetch for Cloudflare Worker — no JSONP needed since Worker handles CORS
+async function apiFetch(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // ══════════════════════════════════════
 // EXERCISE LIST (shared via Sheets)
 // ══════════════════════════════════════
 async function loadExercises() {
   try {
-    const d = await jsonpFetch(WEB_APP_URL + '?action=getExercises');
+    const d = await apiFetch(WEB_APP_URL + '?action=getExercises');
     if (d.success) exerciseList = d.exercises || [];
   } catch { exerciseList = []; }
 }
@@ -110,14 +116,14 @@ function addExerciseToSheet(name) {
 // ══════════════════════════════════════
 async function fetchLifts() {
   if (cachedLifts) return cachedLifts;
-  try { const d = await jsonpFetch(WEB_APP_URL + '?action=getLifts'); cachedLifts = d.success ? d.rows : []; }
+  try { const d = await apiFetch(WEB_APP_URL + '?action=getLifts'); cachedLifts = d.success ? d.rows : []; }
   catch { cachedLifts = []; }
   return cachedLifts;
 }
 
 async function fetchWorkouts() {
   if (cachedWorkouts) return cachedWorkouts;
-  try { const d = await jsonpFetch(WEB_APP_URL + '?action=getWorkouts'); cachedWorkouts = d.success ? d.rows : []; }
+  try { const d = await apiFetch(WEB_APP_URL + '?action=getWorkouts'); cachedWorkouts = d.success ? d.rows : []; }
   catch { cachedWorkouts = []; }
   return cachedWorkouts;
 }
@@ -162,7 +168,7 @@ async function showLastSession(exId, exerciseName) {
   try {
     // Fetch lifts if not cached
     if (!cachedLifts) {
-      const d = await jsonpFetch(WEB_APP_URL + '?action=getLifts');
+      const d = await apiFetch(WEB_APP_URL + '?action=getLifts');
       cachedLifts = d.success ? d.rows : [];
     }
 
