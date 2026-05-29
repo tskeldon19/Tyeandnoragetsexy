@@ -707,7 +707,11 @@ function renderDynamic(type) {
 
   if (type === 'lift') {
     html += '</div></div>';
-    html += `<div class="section fade-in"><div class="section-head">Exercises</div><div class="section-body" id="ex-container">${renderExBlock()}</div><button class="add-btn" style="margin:0 16px 16px;" onclick="addExercise()">＋ Add exercise</button></div>`;
+    html += `<div class="section fade-in"><div class="section-head">Exercises</div><div class="section-body" id="ex-container">${renderExBlock()}</div>
+      <div style="display:flex;gap:8px;margin:0 16px 16px;">
+        <button class="add-btn" style="margin:0;" onclick="addExercise()">＋ Add exercise</button>
+        <button class="add-btn" style="margin:0;border-color:rgba(127,119,221,0.4);color:#7F77DD;" onclick="addSuperset()">⟳ Add superset</button>
+      </div></div>`;
     area.innerHTML = html; return;
   }
   if (type === 'hiit') {
@@ -744,17 +748,22 @@ function renderDynamic(type) {
 // ══════════════════════════════════════
 // LIFT EXERCISE BLOCKS
 // ══════════════════════════════════════
-function renderExBlock() {
+function renderExBlock(isSuperset=false, supersetGroup=null) {
   exerciseCount++;
   const id = exerciseCount; setsMap[id] = 1;
-  return `<div class="exercise-block" id="exblock-${id}">
+  const ssGroup = supersetGroup || id;
+  const leftBorder = isSuperset ? 'border-left:3px solid #7F77DD;' : '';
+  return `<div class="exercise-block" id="exblock-${id}" data-superset="false" data-ss-group="${ssGroup}" style="${leftBorder}">
     <div class="exercise-block-head">
       <div class="autocomplete-wrap" style="flex:1;">
         <input class="exercise-name" id="exname-${id}" type="text" placeholder="Exercise name"
           oninput="acFilter('exname-${id}','ac-ex-${id}')" onblur="acHide('ac-ex-${id}')" autocomplete="off">
         <div class="autocomplete-list" id="ac-ex-${id}"></div>
       </div>
-      <button class="remove-btn" onclick="removeEx(${id})">✕</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="ss-toggle-btn" id="ss-btn-${id}" onclick="toggleSuperset(${id})" title="Mark as superset" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;padding:4px 8px;cursor:pointer;white-space:nowrap;">SS</button>
+        <button class="remove-btn" onclick="removeEx(${id})">✕</button>
+      </div>
     </div>
     <div id="last-session-${id}" style="display:none;padding:8px 12px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);background:rgba(200,245,98,0.06);border-bottom:1px solid var(--border);line-height:1.6;"></div>
     <div class="sets-header"><span>Set</span><span>Reps</span><span>Weight</span><span>RPE</span><span></span></div>
@@ -763,19 +772,105 @@ function renderExBlock() {
   </div>`;
 }
 
-function renderSetRow(exId, n) {
+function toggleSuperset(id) {
+  const block = document.getElementById(`exblock-${id}`);
+  const btn = document.getElementById(`ss-btn-${id}`);
+  const isOn = block.dataset.superset === 'true';
+  if (isOn) {
+    block.dataset.superset = 'false';
+    block.style.borderLeft = '';
+    btn.style.color = 'var(--muted)';
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'none';
+  } else {
+    block.dataset.superset = 'true';
+    block.style.borderLeft = '3px solid #7F77DD';
+    btn.style.color = '#7F77DD';
+    btn.style.borderColor = '#7F77DD';
+    btn.style.background = 'rgba(127,119,221,0.12)';
+  }
+}
+
+function renderSetRow(exId, n, prefillWeight='') {
   return `<div class="set-row" id="setrow-${exId}-${n}">
     <span class="set-num">${n}</span>
-    <input class="set-input" id="reps-${exId}-${n}" type="number" placeholder="—" inputmode="numeric">
-    <input class="set-input" id="weight-${exId}-${n}" type="number" placeholder="—" inputmode="decimal">
-    <input class="set-input" id="rpe-${exId}-${n}" type="number" placeholder="—" min="1" max="10" inputmode="numeric">
+    <input class="set-input" id="reps-${exId}-${n}" type="number" placeholder="—" inputmode="numeric"
+      onkeydown="handleSetTab(event,'reps',${exId},${n})">
+    <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
+      <input class="set-input" id="weight-${exId}-${n}" type="number" placeholder="—" inputmode="decimal"
+        value="${prefillWeight}" onkeydown="handleSetTab(event,'weight',${exId},${n})">
+      <div style="display:flex;gap:2px;">
+        <button onclick="adjustWeight(${exId},${n},-5)" style="flex:1;padding:2px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;cursor:pointer;">-5</button>
+        <button onclick="adjustWeight(${exId},${n},5)" style="flex:1;padding:2px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;cursor:pointer;">+5</button>
+      </div>
+    </div>
+    <input class="set-input" id="rpe-${exId}-${n}" type="number" placeholder="—" min="1" max="10" inputmode="numeric"
+      onkeydown="handleSetTab(event,'rpe',${exId},${n})">
     <button class="set-del" onclick="removeSet(${exId},${n})">✕</button>
   </div>`;
 }
 
-function addExercise() { const c=document.getElementById('ex-container'),d=document.createElement('div'); d.innerHTML=renderExBlock(); c.appendChild(d.firstElementChild); }
+function adjustWeight(exId, n, delta) {
+  const el = document.getElementById(`weight-${exId}-${n}`);
+  if (!el) return;
+  const current = parseFloat(el.value) || 0;
+  el.value = Math.max(0, current + delta);
+}
+
+function handleSetTab(event, field, exId, n) {
+  if (event.key !== 'Enter' && event.key !== 'Tab') return;
+  event.preventDefault();
+  // Tab order: reps -> weight -> rpe -> next set reps
+  if (field === 'reps') { document.getElementById(`weight-${exId}-${n}`)?.focus(); }
+  else if (field === 'weight') { document.getElementById(`rpe-${exId}-${n}`)?.focus(); }
+  else if (field === 'rpe') {
+    // Move to next set's reps, or add a new set
+    const nextN = n + 1;
+    const nextReps = document.getElementById(`reps-${exId}-${nextN}`);
+    if (nextReps) { nextReps.focus(); }
+    else { addSet(exId); setTimeout(() => document.getElementById(`reps-${exId}-${nextN}`)?.focus(), 50); }
+  }
+}
+
+function addExercise() {
+  const c=document.getElementById('ex-container'),d=document.createElement('div');
+  d.innerHTML=renderExBlock(); c.appendChild(d.firstElementChild);
+}
+
+function addSuperset() {
+  const c = document.getElementById('ex-container');
+  const ssGroup = Date.now();
+  // Add a connector between the two superset exercises
+  const connector = document.createElement('div');
+  connector.className = 'superset-connector';
+  connector.innerHTML = '<span>SUPERSET</span>';
+
+  const d1 = document.createElement('div');
+  d1.innerHTML = renderExBlock(true, ssGroup);
+  const block1 = d1.firstElementChild;
+  block1.dataset.superset = 'true';
+  const btn1 = block1.querySelector('.ss-toggle-btn');
+  if (btn1) { btn1.style.color='#7F77DD'; btn1.style.borderColor='#7F77DD'; btn1.style.background='rgba(127,119,221,0.12)'; }
+
+  const d2 = document.createElement('div');
+  d2.innerHTML = renderExBlock(true, ssGroup);
+  const block2 = d2.firstElementChild;
+  block2.dataset.superset = 'true';
+  const btn2 = block2.querySelector('.ss-toggle-btn');
+  if (btn2) { btn2.style.color='#7F77DD'; btn2.style.borderColor='#7F77DD'; btn2.style.background='rgba(127,119,221,0.12)'; }
+
+  c.appendChild(block1);
+  c.appendChild(connector);
+  c.appendChild(block2);
+}
 function removeEx(id) { const el=document.getElementById(`exblock-${id}`); if(el) el.remove(); }
-function addSet(exId) { setsMap[exId]=(setsMap[exId]||0)+1; const n=setsMap[exId]; document.getElementById(`sets-${exId}`).insertAdjacentHTML('beforeend',renderSetRow(exId,n)); }
+function addSet(exId) {
+  setsMap[exId] = (setsMap[exId]||0)+1;
+  const n = setsMap[exId];
+  // Prefill weight from previous set
+  const prevWeight = document.getElementById(`weight-${exId}-${n-1}`)?.value || '';
+  document.getElementById(`sets-${exId}`).insertAdjacentHTML('beforeend', renderSetRow(exId, n, prevWeight));
+}
 function removeSet(exId,n) { const el=document.getElementById(`setrow-${exId}-${n}`); if(el) el.remove(); document.getElementById(`sets-${exId}`).querySelectorAll('.set-row').forEach((r,i)=>r.querySelector('.set-num').textContent=i+1); }
 
 // ══════════════════════════════════════
@@ -814,6 +909,8 @@ function collectFormData() {
           weight_kg: parseFloat(document.getElementById(`weight-${exId}-${rowId}`)?.value) || 0,
           rpe: parseFloat(document.getElementById(`rpe-${exId}-${rowId}`)?.value) || '',
           bodyweight: 'FALSE', notes: '',
+          superset: block.dataset.superset === 'true' ? 'TRUE' : 'FALSE',
+          superset_group: block.dataset.ssGroup || '',
         });
       });
     });
