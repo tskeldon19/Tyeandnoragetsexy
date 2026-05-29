@@ -190,7 +190,7 @@ async function showLastSession(exId, exerciseName) {
     const lastSets = userLifts.filter(r => r.session_id === lastSessionId).sort((a, b) => parseFloat(a.set_num) - parseFloat(b.set_num));
 
     // Format nicely
-    const dateStr = lastSets[0].date ? new Date(lastSets[0].date).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+    const rawDate = lastSets[0].timestamp || lastSets[0].date || ''; const dateStr = rawDate ? new Date(rawDate).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
     const setsText = lastSets.map(s => {
       const rpe = s.rpe ? ` @${s.rpe}` : '';
       return `${s.weight_kg}×${s.reps}${rpe}`;
@@ -757,7 +757,9 @@ function renderExBlock(isSuperset=false, supersetGroup=null) {
     <div class="exercise-block-head">
       <div class="autocomplete-wrap" style="flex:1;">
         <input class="exercise-name" id="exname-${id}" type="text" placeholder="Exercise name"
-          oninput="acFilter('exname-${id}','ac-ex-${id}')" onblur="acHide('ac-ex-${id}')" autocomplete="off">
+          oninput="acFilter('exname-${id}','ac-ex-${id}')"
+          onblur="acHide('ac-ex-${id}'); const v=this.value.trim(); if(v) showLastSession('${id}',v);"
+          autocomplete="off">
         <div class="autocomplete-list" id="ac-ex-${id}"></div>
       </div>
       <button class="remove-btn" onclick="removeEx(${id})">✕</button>
@@ -820,46 +822,38 @@ function addExercise() {
 function addSuperset() {
   const c = document.getElementById('ex-container');
   const ssGroup = Date.now();
+  const connector = document.createElement('div');
+  connector.className = 'superset-connector';
+  connector.innerHTML = '<span>SUPERSET</span>';
 
-  // Check if there's only one exercise block and it's empty — use it as first of superset
+  // Always check if the very last block is empty — use it as first of the superset
   const existingBlocks = c.querySelectorAll('.exercise-block');
-  const lastBlock = existingBlocks[existingBlocks.length - 1];
-  const lastBlockName = lastBlock ? document.getElementById('exname-' + lastBlock.id.replace('exblock-',''))?.value?.trim() : '';
+  const lastBlock = existingBlocks.length > 0 ? existingBlocks[existingBlocks.length - 1] : null;
+  const lastId = lastBlock ? lastBlock.id.replace('exblock-','') : null;
+  const lastName = lastId ? (document.getElementById('exname-' + lastId)?.value?.trim() || '') : '';
+  const lastIsSuperset = lastBlock ? lastBlock.dataset.superset === 'true' : false;
 
-  if (existingBlocks.length === 1 && !lastBlockName) {
-    // Style the existing first block as part of the superset
+  if (lastBlock && !lastName && !lastIsSuperset) {
+    // Convert last empty block into first of superset
     lastBlock.style.borderLeft = '3px solid #7F77DD';
     lastBlock.dataset.superset = 'true';
     lastBlock.dataset.ssGroup = ssGroup;
-
-    // Add connector then second block
-    const connector = document.createElement('div');
-    connector.className = 'superset-connector';
-    connector.innerHTML = '<span>SUPERSET</span>';
-
     const d2 = document.createElement('div');
     d2.innerHTML = renderExBlock(true, ssGroup);
     const block2 = d2.firstElementChild;
     block2.dataset.superset = 'true';
-
     c.appendChild(connector);
     c.appendChild(block2);
   } else {
-    // Add two fresh blocks with connector
-    const connector = document.createElement('div');
-    connector.className = 'superset-connector';
-    connector.innerHTML = '<span>SUPERSET</span>';
-
+    // Add two fresh superset blocks
     const d1 = document.createElement('div');
     d1.innerHTML = renderExBlock(true, ssGroup);
     const block1 = d1.firstElementChild;
     block1.dataset.superset = 'true';
-
     const d2 = document.createElement('div');
     d2.innerHTML = renderExBlock(true, ssGroup);
     const block2 = d2.firstElementChild;
     block2.dataset.superset = 'true';
-
     c.appendChild(block1);
     c.appendChild(connector);
     c.appendChild(block2);
