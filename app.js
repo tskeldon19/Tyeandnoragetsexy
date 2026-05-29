@@ -166,7 +166,6 @@ async function showLastSession(exId, exerciseName) {
   el.style.display = 'block';
 
   try {
-    // Fetch lifts if not cached
     if (!cachedLifts) {
       const d = await apiFetch(WEB_APP_URL + '?action=getLifts');
       cachedLifts = d.success ? d.rows : [];
@@ -184,19 +183,45 @@ async function showLastSession(exId, exerciseName) {
       return;
     }
 
-    // Find the most recent session_id
+    // Find most recent session
     const sorted = [...userLifts].sort((a, b) => String(b.session_id).localeCompare(String(a.session_id)));
     const lastSessionId = sorted[0].session_id;
     const lastSets = userLifts.filter(r => r.session_id === lastSessionId).sort((a, b) => parseFloat(a.set_num) - parseFloat(b.set_num));
 
-    // Format nicely
-    const rawDate = lastSets[0].timestamp || lastSets[0].date || ''; const dateStr = rawDate ? new Date(rawDate).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
-    const setsText = lastSets.map(s => {
-      const rpe = s.rpe ? ` @${s.rpe}` : '';
-      return `${s.weight_kg}×${s.reps}${rpe}`;
-    }).join('  ·  ');
-
+    // Show last session bar
+    const rawDate = lastSets[0].timestamp || lastSets[0].date || '';
+    const dateStr = rawDate ? new Date(rawDate).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+    const setsText = lastSets.map(s => `${s.weight_kg}×${s.reps}`).join('  ·  ');
     el.innerHTML = `<span style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Last (${dateStr})</span><br>${setsText}`;
+
+    // Pre-populate sets — clear existing sets and rebuild from last session
+    const setsContainer = document.getElementById(`sets-${exId}`);
+    if (!setsContainer) return;
+    setsContainer.innerHTML = '';
+    setsMap[exId] = lastSets.length;
+
+    lastSets.forEach((s, idx) => {
+      const n = idx + 1;
+      const weight = s.weight_kg || '';
+      const reps = s.reps || '';
+      setsContainer.insertAdjacentHTML('beforeend', `<div class="set-row" id="setrow-${exId}-${n}">
+        <span class="set-num">${n}</span>
+        <input class="set-input" id="reps-${exId}-${n}" type="number" placeholder="—" inputmode="numeric"
+          value="${reps}" onkeydown="handleSetTab(event,'reps',${exId},${n})">
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
+          <input class="set-input" id="weight-${exId}-${n}" type="number" placeholder="—" inputmode="decimal"
+            value="${weight}" onkeydown="handleSetTab(event,'weight',${exId},${n})">
+          <div style="display:flex;gap:2px;">
+            <button onclick="adjustWeight(${exId},${n},-5)" style="flex:1;padding:2px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;cursor:pointer;">-5</button>
+            <button onclick="adjustWeight(${exId},${n},5)" style="flex:1;padding:2px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;cursor:pointer;">+5</button>
+          </div>
+        </div>
+        <input class="set-input" id="rpe-${exId}-${n}" type="number" placeholder="—" min="1" max="10" inputmode="numeric"
+          onkeydown="handleSetTab(event,'rpe',${exId},${n})">
+        <button class="set-del" onclick="removeSet(${exId},${n})">✕</button>
+      </div>`);
+    });
+
   } catch(e) {
     el.textContent = 'Could not load previous data';
   }
