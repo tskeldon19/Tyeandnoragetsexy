@@ -760,10 +760,7 @@ function renderExBlock(isSuperset=false, supersetGroup=null) {
           oninput="acFilter('exname-${id}','ac-ex-${id}')" onblur="acHide('ac-ex-${id}')" autocomplete="off">
         <div class="autocomplete-list" id="ac-ex-${id}"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <button class="ss-toggle-btn" id="ss-btn-${id}" onclick="toggleSuperset(${id})" title="Mark as superset" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;padding:4px 8px;cursor:pointer;white-space:nowrap;">SS</button>
-        <button class="remove-btn" onclick="removeEx(${id})">✕</button>
-      </div>
+      <button class="remove-btn" onclick="removeEx(${id})">✕</button>
     </div>
     <div id="last-session-${id}" style="display:none;padding:8px 12px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);background:rgba(200,245,98,0.06);border-bottom:1px solid var(--border);line-height:1.6;"></div>
     <div class="sets-header"><span>Set</span><span>Reps</span><span>Weight</span><span>RPE</span><span></span></div>
@@ -772,24 +769,7 @@ function renderExBlock(isSuperset=false, supersetGroup=null) {
   </div>`;
 }
 
-function toggleSuperset(id) {
-  const block = document.getElementById(`exblock-${id}`);
-  const btn = document.getElementById(`ss-btn-${id}`);
-  const isOn = block.dataset.superset === 'true';
-  if (isOn) {
-    block.dataset.superset = 'false';
-    block.style.borderLeft = '';
-    btn.style.color = 'var(--muted)';
-    btn.style.borderColor = 'var(--border2)';
-    btn.style.background = 'none';
-  } else {
-    block.dataset.superset = 'true';
-    block.style.borderLeft = '3px solid #7F77DD';
-    btn.style.color = '#7F77DD';
-    btn.style.borderColor = '#7F77DD';
-    btn.style.background = 'rgba(127,119,221,0.12)';
-  }
-}
+
 
 function renderSetRow(exId, n, prefillWeight='') {
   return `<div class="set-row" id="setrow-${exId}-${n}">
@@ -840,28 +820,50 @@ function addExercise() {
 function addSuperset() {
   const c = document.getElementById('ex-container');
   const ssGroup = Date.now();
-  // Add a connector between the two superset exercises
-  const connector = document.createElement('div');
-  connector.className = 'superset-connector';
-  connector.innerHTML = '<span>SUPERSET</span>';
 
-  const d1 = document.createElement('div');
-  d1.innerHTML = renderExBlock(true, ssGroup);
-  const block1 = d1.firstElementChild;
-  block1.dataset.superset = 'true';
-  const btn1 = block1.querySelector('.ss-toggle-btn');
-  if (btn1) { btn1.style.color='#7F77DD'; btn1.style.borderColor='#7F77DD'; btn1.style.background='rgba(127,119,221,0.12)'; }
+  // Check if there's only one exercise block and it's empty — use it as first of superset
+  const existingBlocks = c.querySelectorAll('.exercise-block');
+  const lastBlock = existingBlocks[existingBlocks.length - 1];
+  const lastBlockName = lastBlock ? document.getElementById('exname-' + lastBlock.id.replace('exblock-',''))?.value?.trim() : '';
 
-  const d2 = document.createElement('div');
-  d2.innerHTML = renderExBlock(true, ssGroup);
-  const block2 = d2.firstElementChild;
-  block2.dataset.superset = 'true';
-  const btn2 = block2.querySelector('.ss-toggle-btn');
-  if (btn2) { btn2.style.color='#7F77DD'; btn2.style.borderColor='#7F77DD'; btn2.style.background='rgba(127,119,221,0.12)'; }
+  if (existingBlocks.length === 1 && !lastBlockName) {
+    // Style the existing first block as part of the superset
+    lastBlock.style.borderLeft = '3px solid #7F77DD';
+    lastBlock.dataset.superset = 'true';
+    lastBlock.dataset.ssGroup = ssGroup;
 
-  c.appendChild(block1);
-  c.appendChild(connector);
-  c.appendChild(block2);
+    // Add connector then second block
+    const connector = document.createElement('div');
+    connector.className = 'superset-connector';
+    connector.innerHTML = '<span>SUPERSET</span>';
+
+    const d2 = document.createElement('div');
+    d2.innerHTML = renderExBlock(true, ssGroup);
+    const block2 = d2.firstElementChild;
+    block2.dataset.superset = 'true';
+
+    c.appendChild(connector);
+    c.appendChild(block2);
+  } else {
+    // Add two fresh blocks with connector
+    const connector = document.createElement('div');
+    connector.className = 'superset-connector';
+    connector.innerHTML = '<span>SUPERSET</span>';
+
+    const d1 = document.createElement('div');
+    d1.innerHTML = renderExBlock(true, ssGroup);
+    const block1 = d1.firstElementChild;
+    block1.dataset.superset = 'true';
+
+    const d2 = document.createElement('div');
+    d2.innerHTML = renderExBlock(true, ssGroup);
+    const block2 = d2.firstElementChild;
+    block2.dataset.superset = 'true';
+
+    c.appendChild(block1);
+    c.appendChild(connector);
+    c.appendChild(block2);
+  }
 }
 function removeEx(id) { const el=document.getElementById(`exblock-${id}`); if(el) el.remove(); }
 function addSet(exId) {
