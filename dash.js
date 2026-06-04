@@ -1,23 +1,25 @@
 const WEB_APP_URL = "https://workout-tracker.tskeldon19.workers.dev";
 const CORRECT_PIN = "0515";
 const FEEL = ['','😴','😕','😐','💪','🔥'];
-const TYPE_LABELS = { lift:'Lift','outdoor-run':'Outdoor run','indoor-run':'Indoor run',hiit:'HIIT',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',other:'Other' };
+const TYPE_LABELS = { lift:'Lift','outdoor-run':'Outdoor run','indoor-cardio':'Indoor cardio',hiit:'HIIT',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',swim:'Swim',other:'Other' };
 const TYPE_COLORS = {
   lift:{bg:'#1a2e45',tc:'#63B3ED'},'outdoor-run':{bg:'#0d2b22',tc:'#48BB78'},
-  'indoor-run':{bg:'#0d2b22',tc:'#68D391'},hiit:{bg:'#2d1a10',tc:'#F6AD55'},
+  'indoor-cardio':{bg:'#0d2b22',tc:'#68D391'},hiit:{bg:'#2d1a10',tc:'#F6AD55'},
   hike:{bg:'#0d2b22',tc:'#5DCAA5'},class:{bg:'#2d1a2d',tc:'#D4537E'},
   sports:{bg:'#2d2410',tc:'#ECC94B'},calisthenics:{bg:'#1a1a3a',tc:'#9F7AEA'},
+  swim:{bg:'#0d2b3a',tc:'#63B3ED'},
   other:{bg:'#222',tc:'#888'},
 };
 const PR_TABS = [
   { key:'lift', label:'🏋️ Lifts' },
   { key:'outdoor-run', label:'🏃 Outdoor run' },
-  { key:'indoor-run', label:'⏱️ Indoor run' },
+  { key:'indoor-cardio', label:'⏱️ Indoor run' },
   { key:'hike', label:'⛰️ Hikes' },
   { key:'hiit', label:'🔥 HIIT' },
   { key:'class', label:'🧘 Class' },
   { key:'sports', label:'⚽ Sports' },
   { key:'calisthenics', label:'💪 Calisthenics' },
+  { key:'swim', label:'🏊 Swim' },
 ];
 
 // ── State ──
@@ -365,7 +367,7 @@ function getGoalStatSync(goal, user, sprintOnly) {
       }
     }
     if (metric==='best_pace') {
-      const runs=workouts.filter(r=>String(r.user||'').toLowerCase()===u&&(r.type==='outdoor-run'||r.type==='indoor-run')&&parseFloat(r.pace_min_per_km)>0);
+      const runs=workouts.filter(r=>String(r.user||'').toLowerCase()===u&&(r.type==='outdoor-run'||r.type==='indoor-cardio')&&parseFloat(r.pace_min_per_km)>0);
       if (!runs.length) return { text:'No data yet', achieved:false };
       const best=runs.reduce((a,b)=>parseFloat(b.pace_min_per_km)<parseFloat(a.pace_min_per_km)?b:a);
       const dec=parseFloat(best.pace_min_per_km),mins=Math.floor(dec),secs=Math.round((dec-mins)*60);
@@ -467,7 +469,7 @@ function renderPRs() {
     return;
   }
 
-  if (prTab==='outdoor-run'||prTab==='indoor-run') {
+  if (prTab==='outdoor-run'||prTab==='indoor-cardio') {
     const runs = workouts.filter(r=>users.includes(String(r.user||'').toLowerCase())&&r.type===prTab&&parseFloat(r.pace_min_per_km)>0);
     if (!runs.length) { panel.innerHTML='<div class="pr-empty">No data yet.</div>'; return; }
     const byUser={};
@@ -560,6 +562,25 @@ function renderPRs() {
     return;
   }
 
+  if (prTab==='swim') {
+    const swims=workouts.filter(r=>users.includes(String(r.user||'').toLowerCase())&&r.type==='swim'&&r.duration_min>0);
+    if (!swims.length) { panel.innerHTML='<div class="pr-empty">No swim data yet.</div>'; return; }
+    const byUser={};
+    swims.forEach(r=>{ const u=String(r.user||'').toLowerCase(); if(!byUser[u]||parseFloat(r.duration_min)>parseFloat(byUser[u].duration_min)) byUser[u]=r; });
+    panel.innerHTML = users.filter(u=>byUser[u]).map(u=>{
+      const r=byUser[u];
+      const dist=r.movements||'';
+      return `<div class="pr-row">
+        <span class="pr-name">Best: ${dist||'Swim'}</span>
+        ${whoPill(u)}
+        <span class="pr-val">${r.duration_min} min</span>
+        <span class="pr-badge">PR</span>
+        <span class="pr-date">${fmtDate(null,r)}</span>
+      </div>`;
+    }).join('');
+    return;
+  }
+
   if (prTab==='calisthenics') {
     const cal=allLifts.filter(r=>users.includes(String(r.user||'').toLowerCase())&&parseFloat(r.reps)>0);
     const filtered2=prView==='sprint'?cal.filter(r=>isInSprint(r.date)):cal;
@@ -639,8 +660,8 @@ function renderCalendar() {
 // ══════════════════════════════════════
 // LOG
 // ══════════════════════════════════════
-const LOG_TYPES = ['all','lift','hiit','outdoor-run','indoor-run','hike','class','sports','calisthenics','other'];
-const LOG_TYPE_LABELS = { all:'All',lift:'Lift',hiit:'HIIT','outdoor-run':'Outdoor run','indoor-run':'Indoor run',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',other:'Other' };
+const LOG_TYPES = ['all','lift','hiit','outdoor-run','indoor-cardio','hike','class','sports','calisthenics','other'];
+const LOG_TYPE_LABELS = { all:'All',lift:'Lift',hiit:'HIIT','outdoor-run':'Outdoor run','indoor-cardio':'Indoor run',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',other:'Other' };
 
 function buildLogFilters() {
   document.getElementById('log-type-filters').innerHTML = LOG_TYPES.map(t=>
@@ -684,17 +705,27 @@ function buildDetail(r) {
     if (exNames.length) parts.push(exNames.join(', '));
     if (r.duration_min) parts.push(r.duration_min+' min');
   }
-  if (r.type==='outdoor-run'||r.type==='indoor-run') {
+  if (r.type==='outdoor-run'||r.type==='indoor-cardio') {
     if(r.distance_km) parts.push(r.distance_km+' mi');
     if(r.pace_min_per_km) { const dec=parseFloat(r.pace_min_per_km),m=Math.floor(dec),s=Math.round((dec-m)*60); parts.push(`${m}:${s<10?'0':''}${s}/mi`); }
     if(r.route) parts.push(r.route);
-    if(r.type==='indoor-run'&&r.machine_app) parts.push(r.machine_app);
+    if(r.type==='indoor-cardio'&&r.machine_app) parts.push(r.machine_app);
   }
   if (r.type==='hike') { if(r.distance_km) parts.push(r.distance_km+' mi'); if(r.elevation_m) parts.push(r.elevation_m+' ft gain'); if(r.trail_name) parts.push(r.trail_name); }
   if (r.type==='hiit') { if(r.hiit_format) parts.push(r.hiit_format); if(r.rounds_completed) parts.push(r.rounds_completed+' rounds'); if(r.duration_min) parts.push(r.duration_min+' min'); }
   if (r.type==='class') { if(r.class_type) parts.push(r.class_type); if(r.studio_instructor) parts.push(r.studio_instructor); }
   if (r.type==='sports') { if(r.sport_name) parts.push(r.sport_name); if(r.duration_min) parts.push(r.duration_min+' min'); }
   if (r.type==='calisthenics') { if(r.movements) parts.push(String(r.movements).substring(0,50)); }
+  if (r.type==='swim') {
+    if(r.movements) parts.push(r.movements);
+    if(r.duration_min) parts.push(r.duration_min+' min');
+  }
+  if (r.type==='indoor-cardio') {
+    if(r.machine_app) parts.push(r.machine_app);
+    if(r.distance_km) parts.push(r.distance_km+' mi');
+    if(r.pace_min_per_km){ const dec=parseFloat(r.pace_min_per_km),m=Math.floor(dec),s=Math.round((dec-m)*60); parts.push(`${m}:${s<10?'0':''}${s}/mi`); }
+    if(r.duration_min) parts.push(r.duration_min+' min');
+  }
   if (r.type==='other') { if(r.other_description) parts.push(String(r.other_description).substring(0,50)); }
   if (!parts.length&&r.duration_min) parts.push(r.duration_min+' min');
   if (!parts.length&&r.notes) parts.push(String(r.notes).substring(0,50));

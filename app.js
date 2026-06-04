@@ -185,8 +185,8 @@ async function showLastSession(exId, exerciseName) {
 
     // Find most recent session
     const sorted = [...userLifts].sort((a, b) => String(b.session_id).localeCompare(String(a.session_id)));
-    const lastSessionId = sorted[0].session_id;
-    const lastSets = userLifts.filter(r => r.session_id === lastSessionId).sort((a, b) => parseFloat(a.set_num) - parseFloat(b.set_num));
+    const lastSessionId = String(sorted[0].session_id);
+    const lastSets = userLifts.filter(r => String(r.session_id) === lastSessionId).sort((a, b) => parseFloat(a.set_num) - parseFloat(b.set_num));
 
     // Show last session bar
     const rawDate = lastSets[0].timestamp || lastSets[0].date || '';
@@ -195,10 +195,11 @@ async function showLastSession(exId, exerciseName) {
     el.innerHTML = `<span style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Last (${dateStr})</span><br>${setsText}`;
 
     // Pre-populate sets — clear existing sets and rebuild from last session
-    const setsContainer = document.getElementById(`sets-${exId}`);
+    const setsContainer = document.getElementById('sets-' + exId);
     if (!setsContainer) return;
     setsContainer.innerHTML = '';
     setsMap[exId] = lastSets.length;
+    console.log('Pre-filling', lastSets.length, 'sets for', exerciseName, lastSets);
 
     lastSets.forEach((s, idx) => {
       const n = idx + 1;
@@ -522,7 +523,7 @@ function switchGoalsUser(btn, user) {
   renderGoals();
 }
 
-const TYPE_LABELS = { lift:'Lift','outdoor-run':'Outdoor run','indoor-run':'Indoor run',hiit:'HIIT',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',other:'Other' };
+const TYPE_LABELS = { lift:'Lift','outdoor-run':'Outdoor run','indoor-cardio':'Indoor cardio',hiit:'HIIT',hike:'Hike',class:'Class',sports:'Sports',calisthenics:'Calisthenics',swim:'Swim',other:'Other' };
 
 async function renderGoals() {
   const goals = loadGoals()[goalsUser] || [];
@@ -743,13 +744,15 @@ function renderDynamic(type) {
     html += `<div class="field-group cols-2">${sel('Format','f-hiit-format',['Tabata','AMRAP','EMOM','Circuit','Bootcamp','Custom'])}${fld('Rounds','number','5','f-rounds')}</div>`;
     html += `<div class="field-group">${fld('Exercises / intervals','text','Burpees x10, Squats x15…','f-hiit-ex')}</div>`;
   }
-  if (type === 'outdoor-run' || type === 'indoor-run') {
-    html += `<div class="field-group cols-3">${fld('Distance','number','3.1','f-distance')}${sel('Unit','f-unit',['miles','km'],'miles')}${fld('Avg pace','text','8:00','f-pace')}</div>`;
+  if (type === 'outdoor-run' || type === 'indoor-cardio') {
     if (type === 'outdoor-run') {
+      html += `<div class="field-group cols-3">${fld('Distance','number','3.1','f-distance')}${sel('Unit','f-unit',['miles','km'],'miles')}${fld('Avg pace','text','8:00','f-pace')}</div>`;
       html += `<div class="field-group cols-2">${fld('Elevation gain (ft)','number','200','f-elevation')}${fld('Route / location','text','Local trail…','f-route')}</div>`;
       html += `<div class="field-group">${sel('Conditions','f-conditions',['Clear','Cloudy','Rain','Hot','Cold','Windy','Snow'])}</div>`;
     } else {
-      html += `<div class="field-group cols-3">${fld('Speed (mph)','number','6.5','f-speed')}${fld('Incline (%)','number','1.0','f-incline')}${fld('Machine / app','text','Peloton…','f-machine')}</div>`;
+      html += `<div class="field-group">${sel('Machine type','f-machine-type',['Treadmill','Stairmaster','Row machine','Bike / Spin','Elliptical','Jump rope','Other cardio'],'Treadmill')}</div>`;
+      html += `<div id="indoor-cardio-fields"></div>`;
+      setTimeout(() => renderIndoorCardioFields('Treadmill'), 0);
     }
   }
   if (type === 'hike') {
@@ -765,9 +768,43 @@ function renderDynamic(type) {
     html += `<div class="field-group">${acFld('Movement / exercise','f-cal-ac','ac-cal','e.g. Pull ups, Dips…')}</div>`;
     html += `<div class="field-group">${fld('Reps / sets detail','text','Pull ups 14, Dips 20…','f-movements')}</div>`;
   }
+  if (type === 'swim') {
+    html += `<div class="field-group cols-2">${fld('Distance','number','1000','f-swim-distance')}${sel('Unit','f-swim-unit',['yards','meters','laps'],'yards')}</div>`;
+    html += `<div class="field-group">${sel('Stroke','f-stroke',['Freestyle','Backstroke','Breaststroke','Butterfly','Mixed / IM'])}</div>`;
+    html += `<div class="field-group">${fld('Notes','text','Open water, pool laps…','f-swim-notes')}</div>`;
+  }
   if (type === 'other') { html += `<div class="field-group">${fld('Description','text','What did you do?','f-other')}</div>`; }
   html += '</div></div>';
   area.innerHTML = html;
+}
+
+// ══════════════════════════════════════
+// INDOOR CARDIO DYNAMIC FIELDS
+// ══════════════════════════════════════
+function renderIndoorCardioFields(machine) {
+  const container = document.getElementById('indoor-cardio-fields');
+  if (!container) return;
+  // Also bind onchange to machine type select
+  const sel = document.getElementById('f-machine-type');
+  if (sel) sel.onchange = () => renderIndoorCardioFields(sel.value);
+  let html = '';
+  if (machine === 'Treadmill') {
+    html = `<div class="field-group cols-3">${fld('Distance','number','1.0','f-distance')}${fld('Avg pace','text','8:00','f-pace')}${fld('Speed (mph)','number','6.5','f-speed')}</div>
+            <div class="field-group">${fld('Incline (%)','number','1.0','f-incline')}</div>`;
+  } else if (machine === 'Stairmaster') {
+    html = `<div class="field-group cols-2">${fld('Duration (min)','number','30','f-cardio-dur')}${fld('Level / resistance','number','8','f-cardio-level')}</div>`;
+  } else if (machine === 'Row machine') {
+    html = `<div class="field-group cols-3">${fld('Distance (m)','number','2000','f-distance')}${fld('Split time','text','2:05','f-pace')}${fld('Duration (min)','number','8','f-cardio-dur')}</div>`;
+  } else if (machine === 'Bike / Spin') {
+    html = `<div class="field-group cols-3">${fld('Distance','number','10','f-distance')}${fld('Resistance','number','15','f-cardio-level')}${fld('Avg RPM','number','80','f-cardio-rpm')}</div>`;
+  } else if (machine === 'Elliptical') {
+    html = `<div class="field-group cols-3">${fld('Distance','number','3.0','f-distance')}${fld('Resistance','number','8','f-cardio-level')}${fld('Incline','number','5','f-incline')}</div>`;
+  } else if (machine === 'Jump rope') {
+    html = `<div class="field-group cols-2">${fld('Duration (min)','number','15','f-cardio-dur')}${fld('Rounds','number','5','f-rounds')}</div>`;
+  } else {
+    html = `<div class="field-group">${fld('Description','text','What did you do?','f-cardio-desc')}</div>`;
+  }
+  container.innerHTML = html;
 }
 
 // ══════════════════════════════════════
@@ -793,6 +830,7 @@ function renderExBlock(isSuperset=false, supersetGroup=null) {
     <div class="sets-header"><span>Set</span><span>Reps</span><span>Weight</span><span>RPE</span><span></span></div>
     <div id="sets-${id}">${renderSetRow(id,1)}</div>
     <button class="add-btn" style="margin:8px 12px;width:calc(100% - 24px);" onclick="addSet(${id})">＋ Add set</button>
+    ${isSuperset ? `<button class="add-btn ss-add-btn" style="margin:0 12px 8px;width:calc(100% - 24px);border-color:rgba(127,119,221,0.4);color:#7F77DD;" onclick="addToSuperset(${ssGroup})">＋ Add to superset</button>` : ''}
   </div>`;
 }
 
@@ -844,14 +882,31 @@ function addExercise() {
   d.innerHTML=renderExBlock(); c.appendChild(d.firstElementChild);
 }
 
+function makeConnector(ssGroup) {
+  const conn = document.createElement('div');
+  conn.className = 'superset-connector';
+  conn.dataset.ssGroup = ssGroup;
+  conn.innerHTML = '<span>SUPERSET</span>';
+  return conn;
+}
+
+function addToSuperset(ssGroup) {
+  const c = document.getElementById('ex-container');
+  const allBlocks = [...c.querySelectorAll('.exercise-block')];
+  const groupBlocks = allBlocks.filter(b => b.dataset.ssGroup === String(ssGroup));
+  if (!groupBlocks.length) return;
+  const lastGroupBlock = groupBlocks[groupBlocks.length - 1];
+  const d = document.createElement('div');
+  d.innerHTML = renderExBlock(true, ssGroup);
+  const newBlock = d.firstElementChild;
+  newBlock.dataset.ssGroup = ssGroup;
+  lastGroupBlock.after(makeConnector(ssGroup));
+  lastGroupBlock.nextElementSibling.after(newBlock);
+}
+
 function addSuperset() {
   const c = document.getElementById('ex-container');
   const ssGroup = Date.now();
-  const connector = document.createElement('div');
-  connector.className = 'superset-connector';
-  connector.innerHTML = '<span>SUPERSET</span>';
-
-  // Always check if the very last block is empty — use it as first of the superset
   const existingBlocks = c.querySelectorAll('.exercise-block');
   const lastBlock = existingBlocks.length > 0 ? existingBlocks[existingBlocks.length - 1] : null;
   const lastId = lastBlock ? lastBlock.id.replace('exblock-','') : null;
@@ -859,7 +914,6 @@ function addSuperset() {
   const lastIsSuperset = lastBlock ? lastBlock.dataset.superset === 'true' : false;
 
   if (lastBlock && !lastName && !lastIsSuperset) {
-    // Convert last empty block into first of superset
     lastBlock.style.borderLeft = '3px solid #7F77DD';
     lastBlock.dataset.superset = 'true';
     lastBlock.dataset.ssGroup = ssGroup;
@@ -867,24 +921,86 @@ function addSuperset() {
     d2.innerHTML = renderExBlock(true, ssGroup);
     const block2 = d2.firstElementChild;
     block2.dataset.superset = 'true';
-    c.appendChild(connector);
+    block2.dataset.ssGroup = ssGroup;
+    // Add "Add to superset" button to first block
+    addToSupersetBtn(lastBlock, ssGroup);
+    c.appendChild(makeConnector(ssGroup));
     c.appendChild(block2);
   } else {
-    // Add two fresh superset blocks
     const d1 = document.createElement('div');
     d1.innerHTML = renderExBlock(true, ssGroup);
     const block1 = d1.firstElementChild;
     block1.dataset.superset = 'true';
+    block1.dataset.ssGroup = ssGroup;
     const d2 = document.createElement('div');
     d2.innerHTML = renderExBlock(true, ssGroup);
     const block2 = d2.firstElementChild;
     block2.dataset.superset = 'true';
+    block2.dataset.ssGroup = ssGroup;
     c.appendChild(block1);
-    c.appendChild(connector);
+    c.appendChild(makeConnector(ssGroup));
     c.appendChild(block2);
   }
 }
-function removeEx(id) { const el=document.getElementById(`exblock-${id}`); if(el) el.remove(); }
+
+function addToSupersetBtn(block, ssGroup) {
+  // Add "Add to superset" button to a block if not already present
+  if (block.querySelector('.ss-add-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'add-btn ss-add-btn';
+  btn.style.cssText = 'margin:0 12px 8px;width:calc(100% - 24px);border-color:rgba(127,119,221,0.4);color:#7F77DD;';
+  btn.textContent = '＋ Add to superset';
+  btn.onclick = () => addToSuperset(ssGroup);
+  block.appendChild(btn);
+}
+function removeEx(id) {
+  const el = document.getElementById('exblock-' + id);
+  if (!el) return;
+  const c = document.getElementById('ex-container');
+  const ssGroup = el.dataset.ssGroup;
+
+  // Remove adjacent connector
+  const prev = el.previousElementSibling;
+  const next = el.nextElementSibling;
+  if (prev && prev.classList.contains('superset-connector')) prev.remove();
+  else if (next && next.classList.contains('superset-connector')) next.remove();
+  el.remove();
+
+  // Clean up orphaned connectors
+  c.querySelectorAll('.superset-connector').forEach(conn => {
+    const prevEl = conn.previousElementSibling;
+    const nextEl = conn.nextElementSibling;
+    if (!prevEl || !prevEl.classList.contains('exercise-block') ||
+        !nextEl || !nextEl.classList.contains('exercise-block')) {
+      conn.remove();
+    }
+  });
+
+  // If this superset group now has only 1 block, clean up its styling
+  if (ssGroup) {
+    const remaining = [...c.querySelectorAll('.exercise-block')].filter(b => b.dataset.ssGroup === ssGroup);
+    if (remaining.length <= 1 && remaining[0]) {
+      remaining[0].style.borderLeft = '';
+      remaining[0].dataset.superset = 'false';
+      // Remove "Add to superset" button from that block
+      remaining[0].querySelectorAll('.add-btn').forEach(btn => {
+        if (btn.textContent.includes('Add to superset')) btn.remove();
+      });
+    }
+  }
+
+  // Final pass — remove superset styling from any unpaired blocks
+  c.querySelectorAll('.exercise-block').forEach(block => {
+    const prevB = block.previousElementSibling;
+    const nextB = block.nextElementSibling;
+    const isPaired = (prevB && prevB.classList.contains('superset-connector')) ||
+                     (nextB && nextB.classList.contains('superset-connector'));
+    if (!isPaired) {
+      block.style.borderLeft = '';
+      block.dataset.superset = 'false';
+    }
+  });
+}
 function addSet(exId) {
   setsMap[exId] = (setsMap[exId]||0)+1;
   const n = setsMap[exId];
