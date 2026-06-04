@@ -40,11 +40,17 @@ function nd(dateStr) {
 // Get the true local date from a workout row
 // Uses timestamp if available (accurate), falls back to date field
 function rowDate(r) {
-  const ts = r.timestamp || r.date || '';
+  // Use the 'date' field first (actual workout date chosen by user in the form)
+  // Fall back to timestamp only if date field is missing
+  const dateField = r.date ? String(r.date) : '';
+  if (dateField && dateField.length >= 10 && !dateField.startsWith('1970')) {
+    // date field is a plain YYYY-MM-DD or ISO string — extract just the date part
+    return dateField.substring(0, 10);
+  }
+  // Fallback: derive from timestamp converted to local time
+  const ts = r.timestamp || '';
   if (!ts) return '';
-  // timestamp is accurate ISO string from JS Date.now() — convert to local date
   const d = new Date(ts);
-  // Format as YYYY-MM-DD in local time
   const yr = d.getFullYear();
   const mo = String(d.getMonth()+1).padStart(2,'0');
   const dy = String(d.getDate()).padStart(2,'0');
